@@ -14,6 +14,8 @@ import org.springframework.util.StopWatch;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.NavigableSet;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -71,23 +73,23 @@ public class HbaseTemplate implements HbaseOperations {
     }
 
     @Override
-    public <T> List<T> find(String tableName, String family, final RowMapper<T> action) {
+    public <T> List<T> scan(String tableName, String family, final RowMapper<T> action) {
         Scan scan = new Scan();
         scan.setCaching(5000);
         scan.addFamily(Bytes.toBytes(family));
-        return this.find(tableName, scan, action);
+        return this.scan(tableName, scan, action);
     }
 
     @Override
-    public <T> List<T> find(String tableName, String family, String qualifier, final RowMapper<T> action) {
+    public <T> List<T> scan(String tableName, String family, String qualifier, final RowMapper<T> action) {
         Scan scan = new Scan();
         scan.setCaching(5000);
         scan.addColumn(Bytes.toBytes(family), Bytes.toBytes(qualifier));
-        return this.find(tableName, scan, action);
+        return this.scan(tableName, scan, action);
     }
 
     @Override
-    public <T> List<T> find(String tableName, final Scan scan, final RowMapper<T> action) {
+    public <T> List<T> scan(String tableName, final Scan scan, final RowMapper<T> action) {
         return this.execute(tableName, new TableCallback<List<T>>() {
             @Override
             public List<T> doInTable(Table table) throws Throwable {
@@ -101,6 +103,46 @@ public class HbaseTemplate implements HbaseOperations {
                     int rowNum = 0;
                     for (Result result : scanner) {
                         rs.add(action.mapRow(result, rowNum++));
+                    }
+                    return rs;
+                }
+            }
+        });
+    }
+
+    @Override
+    public List<byte[]> scan(String tableName, String family, String qualifier) {
+        Scan scan = new Scan();
+        scan.setCaching(5000);
+        scan.addColumn(Bytes.toBytes(family), Bytes.toBytes(qualifier));
+        return this.scan(tableName, scan);
+    }
+
+    @Override
+    public List<byte[]> scan(String tableName, Scan scan) {
+        if (scan.getFamilies().length != 1) {
+            throw new IllegalArgumentException("列族只能设置一个");
+        }
+        Map<byte[], NavigableSet<byte[]>> familyMap = scan.getFamilyMap();
+        byte[] family = scan.getFamilies()[0];
+        NavigableSet<byte[]> navigableSet = familyMap.get(family);
+        if (null == navigableSet || navigableSet.size() != 1) {
+            throw new IllegalArgumentException("指定列只能设置一个");
+        }
+        byte[] qualifier = navigableSet.pollFirst();
+        return this.execute(tableName, new TableCallback<List<byte[]>>() {
+            @Override
+            public List<byte[]> doInTable(Table table) throws Throwable {
+                int caching = scan.getCaching();
+                // 如果caching未设置(默认是1)，将默认配置成5000
+                if (caching == 1) {
+                    scan.setCaching(5000);
+                }
+                //TODO NAME-VALUE-FILTER
+                try (ResultScanner scanner = table.getScanner(scan)) {
+                    List<byte[]> rs = new ArrayList<>();
+                    for (Result result : scanner) {
+                        rs.add(result.getValue(family, qualifier));
                     }
                     return rs;
                 }
@@ -134,6 +176,21 @@ public class HbaseTemplate implements HbaseOperations {
                 }
                 Result result = table.get(get);
                 return mapper.mapRow(result, 0);
+            }
+        });
+    }
+
+    @Override
+    public byte[] get(String tableName, String rowName, String familyName, String qualifier) {
+        return this.execute(tableName, new TableCallback<byte[]>() {
+            @Override
+            public byte[] doInTable(Table table) throws Throwable {
+                Get get = new Get(Bytes.toBytes(rowName));
+                byte[] family = Bytes.toBytes(familyName);
+                byte[] qualifierByte = Bytes.toBytes(qualifier);
+                get.addColumn(family, qualifierByte);
+                Result result = table.get(get);
+                return result.getValue(family, qualifierByte);
             }
         });
     }

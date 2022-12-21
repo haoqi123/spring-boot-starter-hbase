@@ -5,7 +5,7 @@ public class PeopleDto {
 
     private String name;
 
-    private int age;
+    private Integer age;
 
     public String getName() {
         return name;
@@ -16,11 +16,11 @@ public class PeopleDto {
         return this;
     }
 
-    public int getAge() {
+    public Integer getAge() {
         return age;
     }
 
-    public PeopleDto setAge(int age) {
+    public PeopleDto setAge(Integer age) {
         this.age = age;
         return this;
     }

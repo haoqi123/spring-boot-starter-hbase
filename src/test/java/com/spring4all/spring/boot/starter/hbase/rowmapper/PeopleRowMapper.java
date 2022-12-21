@@ -14,10 +14,11 @@ public class PeopleRowMapper implements RowMapper<PeopleDto> {
     @Override
     public PeopleDto mapRow(Result result, int rowNum) throws Exception {
         PeopleDto dto = new PeopleDto();
-        // TODO: 设置相关的属性值
+        Integer age = Bytes.toInt(result.getValue(COLUMNFAMILY, AGE));
         String name = Bytes.toString(result.getValue(COLUMNFAMILY, NAME));
-//        int age = Bytes.toInt(result.getValue(COLUMNFAMILY, AGE));
-
-        return dto.setName(name);
+        return dto
+                .setName(name)
+                .setAge(age)
+                ;
     }
 }
