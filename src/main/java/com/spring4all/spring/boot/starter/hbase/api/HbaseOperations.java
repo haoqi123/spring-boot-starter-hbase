@@ -36,7 +36,7 @@ public interface HbaseOperations {
 
     /**
      * Scans the target table, using the given column family.
-     * The content is processed row by row by the given action, returning a list of domain objects.
+     * The content is processed row by the given action, returning a list of domain objects.
      *
      * @param tableName target table
      * @param family column family
@@ -47,7 +47,7 @@ public interface HbaseOperations {
 
     /**
      * Scans the target table, using the given column family.
-     * The content is processed row by row by the given action, returning a list of domain objects.
+     * The content is processed row by the given action, returning a list of domain objects.
      *
      * @param tableName target table
      * @param family column family
@@ -60,7 +60,7 @@ public interface HbaseOperations {
     /**
      * Scans the target table using the given {@link Scan} object. Suitable for maximum control over the scanning
      * process.
-     * The content is processed row by row by the given action, returning a list of domain objects.
+     * The content is processed row by the given action, returning a list of domain objects.
      *
      * @param tableName target table
      * @param scan table scanner

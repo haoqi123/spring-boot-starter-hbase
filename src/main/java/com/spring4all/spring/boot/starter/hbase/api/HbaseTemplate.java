@@ -96,16 +96,13 @@ public class HbaseTemplate implements HbaseOperations {
                 if (caching == 1) {
                     scan.setCaching(5000);
                 }
-                ResultScanner scanner = table.getScanner(scan);
-                try {
+                try (ResultScanner scanner = table.getScanner(scan)) {
                     List<T> rs = new ArrayList<T>();
                     int rowNum = 0;
                     for (Result result : scanner) {
                         rs.add(action.mapRow(result, rowNum++));
                     }
                     return rs;
-                } finally {
-                    scanner.close();
                 }
             }
         });
