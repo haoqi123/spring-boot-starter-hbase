@@ -1,12 +1,13 @@
 package com.spring4all.spring.boot.starter.hbase.api;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.NamespaceDescriptor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
 import org.springframework.util.StopWatch;
 
@@ -24,6 +25,7 @@ import java.util.concurrent.TimeUnit;
  * @author Costin Leau
  * @author Shaun Elliott
  */
+
 /**
  * JThink@JThink
  *
@@ -32,10 +34,8 @@ import java.util.concurrent.TimeUnit;
  * desc： copy from spring data hadoop hbase, modified by JThink, use the 1.0.0 api
  * date： 2016-11-15 15:42:46
  */
+@Slf4j
 public class HbaseTemplate implements HbaseOperations {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(HbaseTemplate.class);
-
     private Configuration configuration;
 
     private volatile Connection connection;
@@ -64,7 +64,7 @@ public class HbaseTemplate implements HbaseOperations {
                     table.close();
                     sw.stop();
                 } catch (IOException e) {
-                    LOGGER.error("hbase资源释放失败");
+                    log.error("hbase资源释放失败");
                 }
             }
         }
@@ -128,8 +128,7 @@ public class HbaseTemplate implements HbaseOperations {
                     byte[] family = Bytes.toBytes(familyName);
                     if (StringUtils.isNotBlank(qualifier)) {
                         get.addColumn(family, Bytes.toBytes(qualifier));
-                    }
-                    else {
+                    } else {
                         get.addFamily(family);
                     }
                 }
@@ -161,7 +160,7 @@ public class HbaseTemplate implements HbaseOperations {
                     mutator.close();
                     sw.stop();
                 } catch (IOException e) {
-                    LOGGER.error("hbase mutator资源释放失败");
+                    log.error("hbase mutator资源释放失败");
                 }
             }
         }
@@ -187,6 +186,20 @@ public class HbaseTemplate implements HbaseOperations {
         });
     }
 
+    @Override
+    public boolean createNamespace(String namespace) {
+        try {
+            NamespaceDescriptor.Builder builder = NamespaceDescriptor.create(namespace);
+            Admin admin = getConnection().getAdmin();
+            builder.addConfiguration("creator", "java-api");
+            admin.createNamespace(builder.build());
+            return true;
+        } catch (IOException e) {
+            log.error("创建失败:{}", ExceptionUtils.getStackTrace(e));
+        }
+        return false;
+    }
+
     public void setConnection(Connection connection) {
         this.connection = connection;
     }
@@ -196,12 +209,17 @@ public class HbaseTemplate implements HbaseOperations {
             synchronized (this) {
                 if (null == this.connection) {
                     try {
-                        ThreadPoolExecutor poolExecutor = new ThreadPoolExecutor(200, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
+                        ThreadPoolExecutor poolExecutor = new ThreadPoolExecutor(
+                                200,
+                                Integer.MAX_VALUE,
+                                60L,
+                                TimeUnit.SECONDS,
+                                new SynchronousQueue<Runnable>());
                         // init pool
                         poolExecutor.prestartCoreThread();
                         this.connection = ConnectionFactory.createConnection(configuration, poolExecutor);
                     } catch (IOException e) {
-                        LOGGER.error("hbase connection资源池创建失败");
+                        log.error("hbase connection资源池创建失败");
                     }
                 }
             }

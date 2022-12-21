@@ -125,4 +125,11 @@ public interface HbaseOperations {
      * @param mutations
      */
     void saveOrUpdates(String tableName, List<Mutation> mutations);
+
+    /**
+     * create namespace
+     * @param namespace name
+     * @return true/false
+     */
+    boolean createNamespace(String namespace);
 }
