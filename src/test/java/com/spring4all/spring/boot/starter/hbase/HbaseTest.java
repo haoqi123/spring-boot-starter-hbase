@@ -3,13 +3,18 @@ package com.spring4all.spring.boot.starter.hbase;
 import com.spring4all.spring.boot.starter.hbase.api.HbaseTemplate;
 import com.spring4all.spring.boot.starter.hbase.boot.HbaseProperties;
 import com.spring4all.spring.boot.starter.hbase.dto.PeopleDto;
+import com.spring4all.spring.boot.starter.hbase.dto.ScannerResult;
 import com.spring4all.spring.boot.starter.hbase.rowmapper.PeopleRowMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.CompareOperator;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.filter.ColumnValueFilter;
+import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -21,6 +26,7 @@ import java.util.List;
 
 import static com.spring4all.spring.boot.starter.hbase.boot.HbaseAutoConfiguration.*;
 
+@Slf4j
 public class HbaseTest {
 
     private static HbaseTemplate hbaseTemplate;
@@ -41,7 +47,7 @@ public class HbaseTest {
 
     @Test
     void createNamespace() {
-        System.out.println(hbaseTemplate.createNamespace("smalldata"));
+        log.info("{}", hbaseTemplate.createNamespace("smalldata"));
     }
 
     @Test
@@ -63,7 +69,7 @@ public class HbaseTest {
         scan.setCaching(5000);
         List<PeopleDto> dtos = hbaseTemplate.scan("bigdata:student", scan, new PeopleRowMapper());
         for (PeopleDto dto : dtos) {
-            System.out.println(dto.toString());
+            log.info("{}", dto.toString());
         }
     }
 
@@ -73,32 +79,35 @@ public class HbaseTest {
         scan.setCaching(5000);
         List<PeopleDto> dtos = hbaseTemplate.scan("bigdata:student", scan, new PeopleRowMapper());
         for (PeopleDto dto : dtos) {
-            System.out.println(dto.toString());
+            log.info("{}", dto.toString());
         }
     }
 
     @Test
     void getOne() {
         PeopleDto dto = hbaseTemplate.get("bigdata:student", "1003", new PeopleRowMapper());
-        System.out.println(dto.toString());
+        log.info("{}", dto.toString());
     }
 
     @Test
     void getByteArr() {
         byte[] nameBytes = hbaseTemplate.get("bigdata:student", "1003", "info", "name");
-        System.out.println(Bytes.toString(nameBytes));
+        log.info("{}", Bytes.toString(nameBytes));
 
         byte[] ageBytes = hbaseTemplate.get("bigdata:student", "1003", "info", "age");
-        System.out.println(Bytes.toInt(ageBytes));
+        log.info("{}", Bytes.toInt(ageBytes));
     }
 
     @Test
     void scanByteArr() {
         List<byte[]> info = hbaseTemplate.scan("bigdata:student", "info", "name");
         for (byte[] bytes : info) {
-            System.out.println(Bytes.toString(bytes));
+            log.info("{}", Bytes.toString(bytes));
         }
+    }
 
+    @Test
+    void scanByteArr2() {
         Scan scan = new Scan();
         byte[] infos = Bytes.toBytes("info");
         byte[] names = Bytes.toBytes("age");
@@ -106,14 +115,73 @@ public class HbaseTest {
         scan.setCaching(10);
         List<byte[]> scan1 = hbaseTemplate.scan("bigdata:student", scan);
         for (byte[] bytes : scan1) {
-            System.out.println(Bytes.toInt(bytes));
+            log.info("{}", Bytes.toInt(bytes));
+        }
+    }
+
+    @Test
+    void scanFilter() {
+        Scan scan = new Scan();
+        byte[] infos = Bytes.toBytes("info");
+        byte[] names = Bytes.toBytes("age");
+        scan.addColumn(infos, names);
+        scan.setCaching(10);
+
+        FilterList filterList = new FilterList();
+        ColumnValueFilter columnValueFilter = new ColumnValueFilter(
+                //列族名
+                infos,
+                //列名
+                names,
+                //比较关系
+                CompareOperator.EQUAL,
+                //值
+                Bytes.toBytes(10)
+        );
+        filterList.addFilter(columnValueFilter);
+        scan.setFilter(filterList);
+
+        List<byte[]> scan1 = hbaseTemplate.scan("bigdata:student", scan);
+        for (byte[] bytes : scan1) {
+            log.info("{}", Bytes.toInt(bytes));
+        }
+    }
+
+    @Test
+    void scannerResult() {
+        Scan scan = new Scan();
+        byte[] infos = Bytes.toBytes("info");
+        byte[] names = Bytes.toBytes("age");
+        scan.addColumn(infos, names);
+        scan.setCaching(10);
+
+        FilterList filterList = new FilterList();
+        ColumnValueFilter columnValueFilter = new ColumnValueFilter(
+                //列族名
+                infos,
+                //列名
+                names,
+                //比较关系
+                CompareOperator.LESS,
+                //值
+                Bytes.toBytes(7)
+        );
+        filterList.addFilter(columnValueFilter);
+        scan.setFilter(filterList);
+
+        List<ScannerResult> scannerResults = hbaseTemplate.scannerResult("bigdata:student", scan);
+        for (ScannerResult scannerResult : scannerResults) {
+            log.info("{}-{}-{}-{}", scannerResult.getRowKey(),
+                    scannerResult.getFamily(),
+                    scannerResult.getQualifier(),
+                    Bytes.toInt(scannerResult.getValue()));
         }
     }
 
     @Test
     void getByFamilyName() {
         PeopleDto dto = hbaseTemplate.get("bigdata:student", "1003", "info", new PeopleRowMapper());
-        System.out.println(dto.toString());
+        log.info("{}", dto.toString());
     }
 
     @Test

@@ -1,9 +1,12 @@
 package com.spring4all.spring.boot.starter.hbase.api;
 
+import com.spring4all.spring.boot.starter.hbase.dto.ScannerResult;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.Cell;
+import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.NamespaceDescriptor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.*;
@@ -112,9 +115,20 @@ public class HbaseTemplate implements HbaseOperations {
 
     @Override
     public List<byte[]> scan(String tableName, String family, String qualifier) {
+        return scan(tableName, null, null, family, qualifier);
+    }
+
+    @Override
+    public List<byte[]> scan(String tableName, String startRow, String stopRow, String family, String qualifier) {
         Scan scan = new Scan();
         scan.setCaching(5000);
         scan.addColumn(Bytes.toBytes(family), Bytes.toBytes(qualifier));
+        if (StringUtils.isNotBlank(startRow)) {
+            scan.withStartRow(Bytes.toBytes(startRow));
+        }
+        if (StringUtils.isNotBlank(stopRow)) {
+            scan.withStopRow(Bytes.toBytes(stopRow));
+        }
         return this.scan(tableName, scan);
     }
 
@@ -130,19 +144,46 @@ public class HbaseTemplate implements HbaseOperations {
             throw new IllegalArgumentException("指定列只能设置一个");
         }
         byte[] qualifier = navigableSet.pollFirst();
+
+        // 如果caching未设置(默认是1)，将默认配置成5000
+        int caching = scan.getCaching();
+        if (caching == 1) {
+            scan.setCaching(5000);
+        }
         return this.execute(tableName, new TableCallback<List<byte[]>>() {
             @Override
             public List<byte[]> doInTable(Table table) throws Throwable {
-                int caching = scan.getCaching();
-                // 如果caching未设置(默认是1)，将默认配置成5000
-                if (caching == 1) {
-                    scan.setCaching(5000);
-                }
-                //TODO NAME-VALUE-FILTER
                 try (ResultScanner scanner = table.getScanner(scan)) {
                     List<byte[]> rs = new ArrayList<>();
                     for (Result result : scanner) {
                         rs.add(result.getValue(family, qualifier));
+                    }
+                    return rs;
+                }
+            }
+        });
+    }
+
+    @Override
+    public List<ScannerResult> scannerResult(String tableName, Scan scan) {
+        // 如果caching未设置(默认是1)，将默认配置成5000
+        int caching = scan.getCaching();
+        if (caching == 1) {
+            scan.setCaching(5000);
+        }
+        return this.execute(tableName, new TableCallback<List<ScannerResult>>() {
+            @Override
+            public List<ScannerResult> doInTable(Table table) throws Throwable {
+                try (ResultScanner scanner = table.getScanner(scan)) {
+                    List<ScannerResult> rs = new ArrayList<>();
+                    for (Result result : scanner) {
+                        Cell[] cells = result.rawCells();
+                        for (Cell cell : cells) {
+                            rs.add(new ScannerResult(Bytes.toString(CellUtil.cloneRow(cell)),
+                                    Bytes.toString(CellUtil.cloneFamily(cell)),
+                                    Bytes.toString(CellUtil.cloneQualifier(cell)),
+                                    CellUtil.cloneValue(cell)));
+                        }
                     }
                     return rs;
                 }

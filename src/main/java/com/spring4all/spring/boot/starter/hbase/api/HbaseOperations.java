@@ -1,5 +1,6 @@
 package com.spring4all.spring.boot.starter.hbase.api;
 
+import com.spring4all.spring.boot.starter.hbase.dto.ScannerResult;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Scan;
 
@@ -70,6 +71,8 @@ public interface HbaseOperations {
      */
     <T> List<T> scan(String tableName, final Scan scan, final RowMapper<T> mapper);
 
+    List<ScannerResult> scannerResult(String tableName, final Scan scan);
+
     /**
      * 获取指定列的数据，返回byte数组
      *
@@ -79,6 +82,8 @@ public interface HbaseOperations {
      * @return
      */
     List<byte[]> scan(String tableName, String family, String qualifier);
+
+    List<byte[]> scan(String tableName, String startRow, String stopRow, String family, String qualifier);
 
     /**
      * 获取指定列的数据，返回byte数组
